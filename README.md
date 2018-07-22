@@ -1,4 +1,4 @@
-# py-labelwriter
+# labelwriter
 
 Module for interfacing with Labelwriter on TCP port 9100
 
