@@ -80,7 +80,7 @@ class Labelwriter:
 
     def print_label(self, data):
         print('weight', data['weight'])
-        weightflat = str(data['weight']).replace(',','').zfill(6)
+        weightflat = str(data['weight']).replace(',','').replace('.','').zfill(6)
         print('weightflat', weightflat)
 
         data['productiondatetime'] = zuludatetimenow()
