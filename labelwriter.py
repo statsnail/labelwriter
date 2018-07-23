@@ -6,6 +6,8 @@
 
 import socket
 import sys
+import time
+from datetime import datetime, date, time
 
 crlf = "\r\n"
 msg_ok = "\r\nOk\r\n"
@@ -13,6 +15,16 @@ msg_ok = "\r\nOk\r\n"
 def bencmsg(msg):
     message = msg+crlf
     return message.encode()
+
+def zuludatetimenow():
+    t = datetime.utcnow()
+    s = t.strftime('%Y-%m-%d %H:%M:%S.%f')
+    return s[0:-7]+'Z'
+
+def zuluproddatenow():
+    t = datetime.utcnow()
+    s = t.strftime('%y%m%d')
+    return s
 
 class MySocket:
     def __init__(self, sock=None):
@@ -50,12 +62,33 @@ class MySocket:
         return b''.join(chunks)
 
 class Labelwriter:
-    data = {'friendlyname':'Common Periwinkle', 'scientificname':'LITTORINA LITTOREA',
-    'productinthirdlanguage':'Produit', 'gtin':'7072773000030', 'processingmethod':'Climbed',
-    'batchno':'000001', 'grade':'Super Jumbo', 'catchdate':'2018-05-10', 'proddate':'180521',
-    'productiondatetime':'2018-05-20 22:46:18Z', 'weight':'5,01', 'pcskg':'100-140 #/kg'}
+    def __init__(self, ip, port):
+        self._ip = ip
+        self._port = port
+        self._socket = MySocket()
+        self._connected = False
 
-    labeltemplate = """
+        while not self._connected:
+            try:
+                self._socket.connect(self._ip, self._port)
+                self._connected = True
+                print("connected labelwriter successfully")
+            except ConnectionRefusedError:
+                print("unable to connect labelwriter, retrying does not work. fail, restart program")
+                time.sleep(1)
+                raise
+
+    def print_label(self, data):
+        print('weight', data['weight'])
+        weightflat = str(data['weight']).replace(',','').zfill(6)
+        print('weightflat', weightflat)
+
+        data['productiondatetime'] = zuludatetimenow()
+        data['proddate'] = zuluproddatenow()
+        data['weightflat'] = weightflat
+        print(data)
+
+        labeltemplate = """
     INPUT OFF
     VERBOFF
     INPUT ON
@@ -91,8 +124,8 @@ class Labelwriter:
     PT "(01) 0{gtin} (10) {batchno}"
 
     PP436,594:BARSET "CODE128C",2,1,4,112
-    PB CHR$(128); "11{proddate}3102000511"
-    PP546,700:PT "(11) 180521 (3102) 000511"
+    PB CHR$(128); "11{proddate}3102{weightflat}"
+    PP546,700:PT "(11) {proddate} (3102) {weightflat}"
 
     PP612,550:BARSET "CODE128C",2,1,4,112
     PB CHR$(128);"00370333500011222549"
@@ -124,16 +157,12 @@ class Labelwriter:
     LAYOUT END
     VERBOFF
     """.format(**data)
-
-    def __init__(self, ip, port):
-        self.ip = ip
-        self.port = port
-        self.socket = MySocket()
-        self.socket.connect(self.ip, self.port)
+        self.send_template(labeltemplate)
+        self.print_template()
 
     def send_single_command(self, command):
         print('cmd: '+command)
-        self.socket.mysend(bencmsg(command))
+        self._socket.mysend(bencmsg(command))
 
     def beep(self):
         self.send_single_command("SOUND 850,10 : SOUND 950,10 ")
@@ -141,8 +170,8 @@ class Labelwriter:
     def formfeed(self):
         self.send_single_command("FORMFEED")
 
-    def send_template(self):
-        self.send_single_command(self.labeltemplate)
+    def send_template(self, template):
+        self.send_single_command(template)
 
     def print_template(self):
         command = """
@@ -195,6 +224,11 @@ def main():
     print("running labelwriter module standalone")
     mylabelwriter = Labelwriter('192.168.1.3', 9100)
     mylabelwriter.beep()
+
+    data = {'friendlyname':'Common Periwinkle', 'scientificname':'LITTORINA LITTOREA',
+    'productinthirdlanguage':'Produit', 'gtin':'7072773000030', 'processingmethod':'Climbed',
+    'batchno':'000001', 'grade':'Super Jumbo', 'catchdate':'2018-05-10', 'weight':'5,01', 'pcskg':'100-141 #/kg'}
+    mylabelwriter.print_label(data)
 
 if __name__ == '__main__':
     main()
