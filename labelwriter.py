@@ -114,10 +114,13 @@ class Labelwriter:
     PP348,214:PT "{processingmethod}"
     PP460,41:PT "Catch date:"
     PP501,41:PT "Prod date:"
+
     PP556,41:FONTSIZE 12
     PT "Net weight:"
     PP606,122:FONTSIZE 19
     PT "{weight} kg"
+    PP680,41:FONTSIZE 19
+    PT "{customer}"
     PP259,462:BARSET "CODE128C",2,1,4,112
     PB CHR$(128);"0{gtin}10{batchno}"
     PP369,571:FONTSIZE 11
@@ -227,7 +230,7 @@ def main():
 
     data = {'friendlyname':'Common Periwinkle', 'scientificname':'LITTORINA LITTOREA',
     'productinthirdlanguage':'Produit', 'gtin':'7072773000030', 'processingmethod':'Climbed',
-    'batchno':'000001', 'grade':'Super Jumbo', 'catchdate':'2018-05-10', 'weight':'5,01', 'pcskg':'100-141 #/kg'}
+    'batchno':'000001', 'grade':'Super Jumbo', 'catchdate':'2018-05-10', 'weight':'5,01', 'pcskg':'100-141 #/kg', 'customer':'thalassa'}
     mylabelwriter.print_label(data)
 
 if __name__ == '__main__':
