@@ -4,10 +4,24 @@
 # 9100 also known as "RAW" print protocol
 # Tested on OS X, Python 3.7, Intermec PC43D
 
+# Template system uses ~{ } delimiter
+# NS9405:2014 Standard is provided as Fingerprint code in NS9405.fp
+# Other templates can be added later
+
+# PCX images must be uploaded to printer prior to usage in templates
+
 import socket
 import sys
 import time
 from datetime import datetime, date, time
+
+import os
+from string import Template
+from pathlib import Path
+import re
+
+BASE_DIR = Path(__file__).resolve().parent
+GLOBAL_TEMPLATES_DIR = BASE_DIR.joinpath('templates')
 
 crlf = "\r\n"
 msg_ok = "\r\nOk\r\n"
@@ -25,6 +39,40 @@ def zuluproddatenow():
     t = datetime.utcnow()
     s = t.strftime('%y%m%d')
     return s
+
+def weightflat(weight):
+    weightflat = str(weight).replace(',','').replace('.','').zfill(6)
+    return weightflat
+
+
+class TemplateClone(Template):
+    delimiter = '~'
+    pattern = r'''
+    \~(?:
+      (?P<escaped>\~) |   # Escape sequence of two delimiters
+      \b\B(?P<named>)      |   # disable named
+      {(?P<braced>[_a-z][_a-z0-9]*)}   |   # delimiter and a braced identifier
+      (?P<invalid>)              # Other ill-formed delimiter exprs
+    )
+    '''
+
+class TemplatesMixin:
+    TEMPLATES_DIR = GLOBAL_TEMPLATES_DIR
+
+    def _read_template(self, template_path):
+        with open(os.path.join(self.TEMPLATES_DIR, template_path)) as template:
+            return template.read()
+
+    def render(self, template_path, **kwargs):
+        return TemplateClone(
+            self._read_template(template_path)
+        ).substitute(**kwargs)
+
+class LabelGenerator(TemplatesMixin):
+    def generate(self, **kwargs):
+        print('Label class ')
+        labelbody = self.render('NS9405.fp', **kwargs)
+        return labelbody
 
 class MySocket:
     def __init__(self, sock=None):
@@ -78,89 +126,21 @@ class Labelwriter:
                 time.sleep(1)
                 raise
 
-    def print_label(self, data):
-        print('weight', data['weight'])
-        weightflat = str(data['weight']).replace(',','').replace('.','').zfill(6)
-        print('weightflat', weightflat)
+    def print_label(self, **kwarg):
+        kwarg_addons = {
+            'proddate':zuluproddatenow(), # Generated
+            'productiondatetime':zuludatetimenow(), # Generated
+            'weightflat':weightflat(kwarg['weight']) # Generated
+        }
 
-        data['productiondatetime'] = zuludatetimenow()
-        data['proddate'] = zuluproddatenow()
-        data['weightflat'] = weightflat
-        print(data)
+        label_data = {**kwarg, **kwarg_addons}
 
-        labeltemplate = """
-    INPUT OFF
-    VERBOFF
-    INPUT ON
-    LAYOUT INPUT "tmp:LABEL1"
-    PP104,41:AN7
-    DIR4
-    NASC 8
-    FT "Univers",18,0,99
-    PT "{friendlyname}"
-    PP166,41:FT "Univers"
-    FONTSIZE 10
-    FONTSLANT 0
-    PT "{scientificname}"
-    PP74,41:PT "Produktnavn / Product name / {productinthirdlanguage}"
-    PP237,1200:AN1
-    DIR2
-    PL1181,6
-    PP200,41:AN7
-    DIR4
-    PT "Production method:"
-    PP24,41:PT "GTIN: {gtin}"
-    PP256,41:PT "Size:"
-    PP348,214:PT "{processingmethod}"
-    PP460,41:PT "Catch date:"
-    PP501,41:PT "Prod date:"
+        generator = LabelGenerator()
+        labelbody = generator.generate(**label_data)
 
-    PP556,41:FONTSIZE 12
-    PT "Net weight:"
-    PP606,122:FONTSIZE 19
-    PT "{weight} kg"
-    PP680,41:FONTSIZE 19
-    PT "{customer}"
-    PP259,462:BARSET "CODE128C",2,1,4,112
-    PB CHR$(128);"0{gtin}10{batchno}"
-    PP369,571:FONTSIZE 11
-    PT "(01) 0{gtin} (10) {batchno}"
-
-    PP436,594:BARSET "CODE128C",2,1,4,112
-    PB CHR$(128); "11{proddate}3102{weightflat}"
-    PP546,700:PT "(11) {proddate} (3102) {weightflat}"
-
-    PP612,550:BARSET "CODE128C",2,1,4,112
-    PB CHR$(128);"00370333500011222549"
-    PP723,667:PT "(00) 3 7033350 001122254 9"
-
-    PP256,214:FONTSIZE 10
-    PT "{grade}"
-    PP348,41:PT "Treatment:"
-    PP395,41:PT "Preservation:"
-    PP395,214:PT "Alive"
-    PP460,214:PT "{catchdate}"
-    PP501,214:PT "{productiondatetime}"
-    PP200,328:PT "Handpicked"
-    PP200,578:PT "Origin:"
-    PP200,712:PT "FAO 27 IIa, Norwegian Sea"
-    PP166,578:PT "Batch no:"
-    PP166,712:PT "{batchno}"
-    PP25,578:PT "Exp.:"
-    PP25,649:PT "Statsnail AS"
-    PP60,649:PT "7165 Oksvoll, NORWAY"
-    PP300,41:PT "pcs/kg:"
-    PP300,214:PT "{pcskg}"
-
-    PRPOS 0,985
-    PRIMAGE "SNAIL150X125.PCX"
-
-    PRPOS 125,990
-    PRIMAGE "EFTA150X81.PCX"
-    LAYOUT END
-    VERBOFF
-    """.format(**data)
-        self.send_template(labeltemplate)
+        #print('printing')
+        #print(labelbody)
+        self.send_template(labelbody)
         self.print_template()
 
     def send_single_command(self, command):
@@ -228,10 +208,22 @@ def main():
     mylabelwriter = Labelwriter('192.168.1.3', 9100)
     mylabelwriter.beep()
 
-    data = {'friendlyname':'Common Periwinkle', 'scientificname':'LITTORINA LITTOREA',
-    'productinthirdlanguage':'Produit', 'gtin':'7072773000030', 'processingmethod':'Climbed',
-    'batchno':'000001', 'grade':'Super Jumbo', 'catchdate':'2018-05-10', 'weight':'5,01', 'pcskg':'100-141 #/kg', 'customer':'thalassa'}
-    mylabelwriter.print_label(data)
+    kwarg_partial = {
+        'friendlyname':'Common Periwinkle',
+        'scientificname':'Littorina littorea',
+        'productinthirdlanguage':'Produit',
+        'gtin':'7072773000030',
+        'processingmethod':'Climbed',
+        'weight':'5,01',
+        'grade':'Super Jumbo',
+        'customer':'Acustomer',
+        'batchno':'000001',
+        'catchdate':'2019-05-10',
+        'pcskg':'100-141'
+    }
+
+    mylabelwriter.print_label(**kwarg_partial)
+
 
 if __name__ == '__main__':
     main()
