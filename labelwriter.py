@@ -20,6 +20,8 @@ from string import Template
 from pathlib import Path
 import re
 
+
+
 BASE_DIR = Path(__file__).resolve().parent
 GLOBAL_TEMPLATES_DIR = BASE_DIR.joinpath('templates')
 
@@ -109,12 +111,16 @@ class MySocket:
                 return b''.join(chunks)
         return b''.join(chunks)
 
+
 class Labelwriter:
     def __init__(self, ip, port):
         self._ip = ip
         self._port = port
         self._socket = MySocket()
         self._connected = False
+
+
+
 
         while not self._connected:
             try:
@@ -210,19 +216,20 @@ def main():
 
     kwarg_partial = {
         'friendlyname':'Common Periwinkle',
-        'scientificname':'Littorina littorea',
+        'scientificname':'LITTORINA LITTOREA',
         'productinthirdlanguage':'Produit',
-        'gtin':'7072773000030',
-        'processingmethod':'Climbed',
-        'weight':'5,01',
-        'grade':'Super Jumbo',
+        'gtin':'7072773000092',
+        'processingmethod':'N/A',
+        'weight':'5,00',
+        'grade':'N/A',
         'customer':'Acustomer',
         'batchno':'000001',
-        'catchdate':'2019-05-10',
-        'pcskg':'100-141'
+        'catchdate':'2019-09-17',
+        'pcskg':'100-140 #/kg'
     }
 
-    mylabelwriter.print_label(**kwarg_partial)
+    # Uncomment to print an actual label
+    # mylabelwriter.print_label(**kwarg_partial)
 
 
 if __name__ == '__main__':

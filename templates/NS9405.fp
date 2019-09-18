@@ -9,8 +9,9 @@ FT "Univers",18,0,99
 PT "~{friendlyname}"
 PP166,41:FT "Univers"
 FONTSIZE 10
-FONTSLANT 0
+FONTSLANT 15
 PT "~{scientificname}"
+FONTSLANT 0
 PP74,41:PT "Produktnavn / Product name / ~{productinthirdlanguage}"
 PP237,1200:AN1
 DIR2
