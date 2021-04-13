@@ -22,3 +22,6 @@ For fun and profit: You can "sniff" any labels printed through other programs on
 * Make fully modular and simple labelwriter interface that anybody can use
 * Make visual label developer, so that we can make labels using a visual interface, or code them and see the results in realtime
 * Add some error-handling...
+
+# Emulator
+If you do not have a labelwriter, use the emulator while you test.
